@@ -1,1 +1,1 @@
-from .core import FancyTestRunner
+from .core import FancyTestRunner, main

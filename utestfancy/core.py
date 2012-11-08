@@ -1,7 +1,21 @@
 # -*- coding: utf-8 -*-
 import time
 import sys
+import weakref
 import unittest
+
+_results = weakref.WeakKeyDictionary()
+def registerResult(result):
+    _results[result] = 1
+
+
+class TestProgram(unittest.TestProgram):
+    def __init__(self, *args, **kwargs):
+        if not hasattr(kwargs, 'testRunner'):
+            kwargs['testRunner'] = FancyTestRunner
+        super(TestProgram, self).__init__(*args, **kwargs)
+
+main = TestProgram
 
 
 class _StylizeWritelnDecorator:
@@ -48,7 +62,7 @@ class _StylizeWritelnDecorator:
         self.write('\n')
 
 
-class _FancyTestResult(unittest.TestResult):
+class FancyTestResult(unittest.TestResult):
     """A test result class that can print formatted text results to a stream
     with fancy colors and unicode characters.
 
@@ -63,7 +77,7 @@ class _FancyTestResult(unittest.TestResult):
     white_diamond_suit = u'♢'.encode(encoding)
 
     def __init__(self, stream, descriptions, verbosity):
-        super(_FancyTestResult, self).__init__()
+        super(FancyTestResult, self).__init__()
         self.successes = []
         self.stream = stream
         self.showAll = verbosity > 1
@@ -86,7 +100,7 @@ class _FancyTestResult(unittest.TestResult):
             return "%s.%s" % (cls.__module__, cls.__name__)
 
     def startTest(self, test):
-        super(_FancyTestResult, self).startTest(test)
+        super(FancyTestResult, self).startTest(test)
         if self.showAll:
             desc = self.getShortTestCaseClassDescription(test)
             if self._last_class_desc != desc:
@@ -97,7 +111,7 @@ class _FancyTestResult(unittest.TestResult):
                 self._last_class_desc = desc
 
     def addSuccess(self, test):
-        super(_FancyTestResult, self).addSuccess(test)
+        super(FancyTestResult, self).addSuccess(test)
         if self.showAll:
             self.stream.write('  %s' % self.check_mark, style='green:bold')
             self.stream.writeln(' %s' % self.getDescription(test))
@@ -105,13 +119,53 @@ class _FancyTestResult(unittest.TestResult):
             self.stream.write('.', style='green')
             self.stream.flush()
 
+    def addError(self, test, err):
+        super(FancyTestResult, self).addError(test, err)
+        if self.showAll:
+            self.stream.write('  %s' % self.ballot_x, style='yellow:bold')
+            self.stream.writeln(' %s' % self.getDescription(test),
+                style='yellow')
+        elif self.dots:
+            self.stream.write('E', style='yellow')
+            self.stream.flush()
+
     def addFailure(self, test, err):
-        super(_FancyTestResult, self).addFailure(test, err)
+        super(FancyTestResult, self).addFailure(test, err)
         if self.showAll:
             self.stream.write('  %s' % self.ballot_x, style='red:bold')
             self.stream.writeln(' %s' % self.getDescription(test), style='red')
         elif self.dots:
             self.stream.write('F', style='red')
+            self.stream.flush()
+
+    def addSkip(self, test, reason):
+        super(FancyTestResult, self).addSkip(test, reason)
+        if self.showAll:
+            self.stream.write("  - ", style='cyan:bold')
+            self.stream.writeln("%s ... %s" % (
+                                reason, self.getDescription(test)))
+        elif self.dots:
+            self.stream.write("s", style='cyan')
+            self.stream.flush()
+
+    def addExpectedFailure(self, test, err):
+        super(FancyTestResult, self).addExpectedFailure(test, err)
+        if self.showAll:
+            self.stream.write("  * ", style='cyan:bold')
+            self.stream.writeln("expected failure ... %s" % (
+                                self.getDescription(test)))
+        elif self.dots:
+            self.stream.write("x", style='cyan')
+            self.stream.flush()
+
+    def addUnexpectedSuccess(self, test):
+        super(FancyTestResult, self).addUnexpectedSuccess(test)
+        if self.showAll:
+            self.stream.write("  * ", style='cyan:bold')
+            self.stream.writeln("unexpected success ... %s" % (
+                                self.getDescription(test)))
+        elif self.dots:
+            self.stream.write("u", style='cyan')
             self.stream.flush()
 
     def printErrors(self):
@@ -133,38 +187,68 @@ class FancyTestRunner(unittest.TextTestRunner):
     """A test runner class that displays results in textual form
     with fancy colors and unicode characters.
     """
-    def __init__(self, stream=sys.stderr, descriptions=1, verbosity=1):
-        self.stream = _StylizeWritelnDecorator(stream)
-        self.descriptions = descriptions
-        self.verbosity = verbosity
+    resultclass= FancyTestResult
 
-    def _makeResult(self):
-        return _FancyTestResult(self.stream, self.descriptions, self.verbosity)
+    def __init__(self, *args, **kwargs):
+        super(FancyTestRunner, self).__init__(*args, **kwargs)
+        self.stream = _StylizeWritelnDecorator(self.stream.stream)
 
     def run(self, test):
         "Run the given test case or test suite."
         result = self._makeResult()
+        registerResult(result)
+        result.failfast = self.failfast
+        result.buffer = self.buffer
         startTime = time.time()
-        test(result)
+        startTestRun = getattr(result, 'startTestRun', None)
+        if startTestRun is not None:
+            startTestRun()
+        try:
+            test(result)
+        finally:
+            stopTestRun = getattr(result, 'stopTestRun', None)
+            if stopTestRun is not None:
+                stopTestRun()
         stopTime = time.time()
         timeTaken = stopTime - startTime
         result.printErrors()
-        run = result.testsRun
-        if not result.wasSuccessful():
-            self.stream.write("%s FAILED " % result.ballot_x, style='red')
-            self.stream.write('(')
-            failed, errored = map(len, (result.failures, result.errors))
-            if failed:
-                self.stream.write("failures=%d" % failed)
-            if errored:
-                if failed:
-                    self.stream.write(", ")
-                self.stream.write("errors=%d" % errored)
-            self.stream.write(", tests=%d" % (run))
-            self.stream.writeln(") (%.3fs)" % timeTaken)
+        if hasattr(result, 'separator2'):
+            self.stream.writeln(result.separator2)
         else:
             self.stream.writeln()
-            self.stream.writeln("%s OK %d test%s complete" % (
-                result.check_mark, run, run != 1 and "s" or ""),
-                style='green:bold')
+        run = result.testsRun
+        self.stream.writeln("Ran %d test%s in %.3fs" %
+                            (run, run != 1 and "s" or "", timeTaken))
+        self.stream.writeln()
+
+        expectedFails = unexpectedSuccesses = skipped = 0
+        try:
+            results = map(len, (result.expectedFailures,
+                                result.unexpectedSuccesses,
+                                result.skipped))
+        except AttributeError:
+            pass
+        else:
+            expectedFails, unexpectedSuccesses, skipped = results
+
+        infos = []
+        if not result.wasSuccessful():
+            self.stream.write("%s FAILED" % result.ballot_x, style='red:bold')
+            failed, errored = map(len, (result.failures, result.errors))
+            if failed:
+                infos.append("failures=%d" % failed)
+            if errored:
+                infos.append("errors=%d" % errored)
+        else:
+            self.stream.write("%s OK" % result.check_mark, style='green:bold')
+        if skipped:
+            infos.append("skipped=%d" % skipped)
+        if expectedFails:
+            infos.append("expected failures=%d" % expectedFails)
+        if unexpectedSuccesses:
+            infos.append("unexpected successes=%d" % unexpectedSuccesses)
+        if infos:
+            self.stream.writeln(" (%s)" % (", ".join(infos),))
+        else:
+            self.stream.write("\n")
         return result

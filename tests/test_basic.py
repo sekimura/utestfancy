@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 from utestfancy import FancyTestRunner
 
+
 class BarTestCase(unittest.TestCase):
     """ Sample Test Case
     """

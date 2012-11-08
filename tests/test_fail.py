@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 from utestfancy import FancyTestRunner
 
+
 class BarTestCase(unittest.TestCase):
     """ Sample Test Case
     """
@@ -25,5 +26,3 @@ if __name__ == '__main__':
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BarTestCase))
     FancyTestRunner(verbosity=2).run(suite)
-
-
