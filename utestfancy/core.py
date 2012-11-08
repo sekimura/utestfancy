@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 import time
 import sys
-import weakref
 import unittest
 
-_results = weakref.WeakKeyDictionary()
-def registerResult(result):
-    _results[result] = 1
+try:
+    # python 2.7
+    from unittest.signals import registerResult
+except ImportError:
+    # python 2.6
+    import weakref
+    _results = weakref.WeakKeyDictionary()
+
+    def registerResult(result):
+        _results[result] = 1
 
 
 class TestProgram(unittest.TestProgram):
@@ -124,7 +130,7 @@ class FancyTestResult(unittest.TestResult):
         if self.showAll:
             self.stream.write('  %s' % self.ballot_x, style='yellow:bold')
             self.stream.writeln(' %s' % self.getDescription(test),
-                style='yellow')
+                                style='yellow')
         elif self.dots:
             self.stream.write('E', style='yellow')
             self.stream.flush()
@@ -187,18 +193,23 @@ class FancyTestRunner(unittest.TextTestRunner):
     """A test runner class that displays results in textual form
     with fancy colors and unicode characters.
     """
-    resultclass= FancyTestResult
+    resultclass = FancyTestResult
 
     def __init__(self, *args, **kwargs):
         super(FancyTestRunner, self).__init__(*args, **kwargs)
         self.stream = _StylizeWritelnDecorator(self.stream.stream)
 
+    def _makeResult(self):
+        return self.resultclass(self.stream, self.descriptions, self.verbosity)
+
     def run(self, test):
         "Run the given test case or test suite."
         result = self._makeResult()
         registerResult(result)
-        result.failfast = self.failfast
-        result.buffer = self.buffer
+        if hasattr(self, 'failfast'):
+            result.failfast = self.failfast
+        if hasattr(self, 'buffer'):
+            result.buffer = self.buffer
         startTime = time.time()
         startTestRun = getattr(result, 'startTestRun', None)
         if startTestRun is not None:
