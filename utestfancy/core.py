@@ -3,6 +3,7 @@ import time
 import sys
 import unittest
 
+
 class _StylizeWritelnDecorator:
     """Used to decorate file-like objects with a handy 'writeln' method"""
     def __init__(self, stream):
@@ -15,15 +16,15 @@ class _StylizeWritelnDecorator:
     def stylize(cls, text, style=''):
         styles = style.split(':')
         style_map = {
-            'bold': [1, 22],
-            'italic': [3, 23],
-            'underline': [4, 24],
-            'cyan': [96, 39],
-            'yellow': [33, 39],
-            'green': [32, 39],
-            'red': [31, 39],
-            'grey': [90, 39],
-            'green-hi': [92, 32],
+            'bold':      [1,  22],
+            'italic':    [3,  23],
+            'underline': [4,  24],
+            'cyan':      [96, 39],
+            'yellow':    [33, 39],
+            'green':     [32, 39],
+            'red':       [31, 39],
+            'grey':      [90, 39],
+            'green-hi':  [92, 32],
         }
         stash = [[], []]
         for style in styles:
@@ -35,16 +36,16 @@ class _StylizeWritelnDecorator:
         writer = getattr(self.stream, 'write')
         if arg:
             if style:
-                arg = self.stylize(arg, style) 
-            return writer(arg)
-        return writer()
+                arg = self.stylize(arg, style)
+        return writer(arg)
 
     def writeln(self, arg=None, style=None):
         if arg:
             if style:
-                arg = self.stylize(arg, style) 
+                arg = self.stylize(arg, style)
             self.write(arg)
-        self.write('\n') # text-mode streams translate to \r\n if needed
+        # text-mode streams translate to \r\n if needed
+        self.write('\n')
 
 
 class _FancyTestResult(unittest.TestResult):
@@ -88,9 +89,10 @@ class _FancyTestResult(unittest.TestResult):
         super(_FancyTestResult, self).startTest(test)
         if self.showAll:
             desc = self.getShortTestCaseClassDescription(test)
-            if self._last_class_desc != desc: 
+            if self._last_class_desc != desc:
                 self.stream.writeln()
-                self.stream.writeln('%s %s' % (self.white_diamond_suit, desc), style='bold')
+                self.stream.writeln('%s %s' % (
+                    self.white_diamond_suit, desc), style='bold')
                 self.stream.writeln()
                 self._last_class_desc = desc
 
@@ -122,7 +124,8 @@ class _FancyTestResult(unittest.TestResult):
 
     def printErrorList(self, flavour, errors):
         for test, err in errors:
-            self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
+            self.stream.writeln("%s: %s" % (
+                flavour, self.getDescription(test)))
             self.stream.writeln("  %s" % "\n  ".join(err.split("\n")))
 
 
@@ -154,13 +157,14 @@ class FancyTestRunner(unittest.TextTestRunner):
             if failed:
                 self.stream.write("failures=%d" % failed)
             if errored:
-                if failed: self.stream.write(", ")
+                if failed:
+                    self.stream.write(", ")
                 self.stream.write("errors=%d" % errored)
             self.stream.write(", tests=%d" % (run))
             self.stream.writeln(") (%.3fs)" % timeTaken)
         else:
             self.stream.writeln()
             self.stream.writeln("%s OK %d test%s complete" % (
-                result.check_mark,
-                run, run !=1 and "s" or ""),style='green:bold')
+                result.check_mark, run, run != 1 and "s" or ""),
+                style='green:bold')
         return result
