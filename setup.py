@@ -10,6 +10,5 @@ setup(
     author_email="sekimura@gmail.com",
     url="http://github.com/sekimura/utestfancy",
     description="Fancy unitetest suite runner",
-    install_requires=['unittest'],
     packages=['utestfancy'],
 )
