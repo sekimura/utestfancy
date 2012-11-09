@@ -48,7 +48,7 @@ class _StylizeWritelnDecorator:
         }
         stash = [[], []]
         for style in styles:
-            stash[0].append('\033[%sm' % style_map[style][0])
+            stash[0].insert(0, '\033[%sm' % style_map[style][0])
             stash[1].append('\033[%sm' % style_map[style][1])
         return ''.join(stash[0]) + text + ''.join(stash[1])
 
@@ -81,6 +81,8 @@ class FancyTestResult(unittest.TestResult):
     ballot_x = u'✗'.encode(encoding)
     # WHITE DIAMOND SUIT '♢' (U+2662)
     white_diamond_suit = u'♢'.encode(encoding)
+    separator1 = '=' * 70
+    separator2 = '-' * 70
 
     def __init__(self, stream, descriptions, verbosity):
         super(FancyTestResult, self).__init__()
@@ -184,8 +186,10 @@ class FancyTestResult(unittest.TestResult):
 
     def printErrorList(self, flavour, errors):
         for test, err in errors:
+            self.stream.writeln(self.separator1)
             self.stream.writeln("%s: %s" % (
                 flavour, self.getDescription(test)))
+            self.stream.writeln(self.separator2)
             self.stream.writeln("  %s" % "\n  ".join(err.split("\n")))
 
 
@@ -196,7 +200,14 @@ class FancyTestRunner(unittest.TextTestRunner):
     resultclass = FancyTestResult
 
     def __init__(self, *args, **kwargs):
-        super(FancyTestRunner, self).__init__(*args, **kwargs)
+        if hasattr(super(FancyTestRunner, self), 'failtest'):
+            super(FancyTestRunner, self).__init__(*args, **kwargs)
+        else:
+            super(FancyTestRunner, self).__init__(
+                stream=kwargs.get('stream', sys.stderr),
+                descriptions=kwargs.get('descriptions', 1),
+                verbosity=kwargs.get('verbosity', 1),
+            )
         self.stream = _StylizeWritelnDecorator(self.stream.stream)
 
     def _makeResult(self):
@@ -229,7 +240,8 @@ class FancyTestRunner(unittest.TextTestRunner):
             self.stream.writeln()
         run = result.testsRun
         self.stream.writeln("Ran %d test%s in %.3fs" %
-                            (run, run != 1 and "s" or "", timeTaken))
+                            (run, run != 1 and "s" or "", timeTaken),
+                            style='grey')
         self.stream.writeln()
 
         expectedFails = unexpectedSuccesses = skipped = 0
