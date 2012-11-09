@@ -41,4 +41,4 @@ class BasicFancyTestRunnerTest(unittest.TestCase):
         stream_mock.close()
 
 if __name__ == '__main__':
-    unittest.main(verbosity=)
+    unittest.main()
